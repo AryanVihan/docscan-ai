@@ -14,7 +14,172 @@ export type Database = {
   }
   public: {
     Tables: {
-      [_ in never]: never
+      ocr_errors: {
+        Row: {
+          created_at: string
+          error_code: string
+          error_details: Json | null
+          error_message: string
+          id: string
+          job_id: string | null
+        }
+        Insert: {
+          created_at?: string
+          error_code: string
+          error_details?: Json | null
+          error_message: string
+          id?: string
+          job_id?: string | null
+        }
+        Update: {
+          created_at?: string
+          error_code?: string
+          error_details?: Json | null
+          error_message?: string
+          id?: string
+          job_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ocr_errors_job_id_fkey"
+            columns: ["job_id"]
+            isOneToOne: false
+            referencedRelation: "ocr_jobs"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      ocr_jobs: {
+        Row: {
+          completed_at: string | null
+          created_at: string
+          error_message: string | null
+          file_name: string
+          file_size: number | null
+          file_type: string | null
+          id: string
+          processing_time_ms: number | null
+          started_at: string | null
+          status: string
+        }
+        Insert: {
+          completed_at?: string | null
+          created_at?: string
+          error_message?: string | null
+          file_name: string
+          file_size?: number | null
+          file_type?: string | null
+          id?: string
+          processing_time_ms?: number | null
+          started_at?: string | null
+          status?: string
+        }
+        Update: {
+          completed_at?: string | null
+          created_at?: string
+          error_message?: string | null
+          file_name?: string
+          file_size?: number | null
+          file_type?: string | null
+          id?: string
+          processing_time_ms?: number | null
+          started_at?: string | null
+          status?: string
+        }
+        Relationships: []
+      }
+      ocr_results: {
+        Row: {
+          confidence: number | null
+          created_at: string
+          date_details: Json | null
+          document_type: string | null
+          extracted_data: Json | null
+          id: string
+          job_id: string
+          metadata: Json | null
+          product_details: Json | null
+          raw_text: string | null
+          reminder_suggestions: Json | null
+          vendor_details: Json | null
+        }
+        Insert: {
+          confidence?: number | null
+          created_at?: string
+          date_details?: Json | null
+          document_type?: string | null
+          extracted_data?: Json | null
+          id?: string
+          job_id: string
+          metadata?: Json | null
+          product_details?: Json | null
+          raw_text?: string | null
+          reminder_suggestions?: Json | null
+          vendor_details?: Json | null
+        }
+        Update: {
+          confidence?: number | null
+          created_at?: string
+          date_details?: Json | null
+          document_type?: string | null
+          extracted_data?: Json | null
+          id?: string
+          job_id?: string
+          metadata?: Json | null
+          product_details?: Json | null
+          raw_text?: string | null
+          reminder_suggestions?: Json | null
+          vendor_details?: Json | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ocr_results_job_id_fkey"
+            columns: ["job_id"]
+            isOneToOne: false
+            referencedRelation: "ocr_jobs"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      ocr_statistics: {
+        Row: {
+          avg_confidence: number | null
+          avg_processing_time_ms: number | null
+          created_at: string
+          date: string
+          document_types: Json | null
+          failed_jobs: number | null
+          id: string
+          successful_jobs: number | null
+          total_jobs: number | null
+          updated_at: string
+        }
+        Insert: {
+          avg_confidence?: number | null
+          avg_processing_time_ms?: number | null
+          created_at?: string
+          date?: string
+          document_types?: Json | null
+          failed_jobs?: number | null
+          id?: string
+          successful_jobs?: number | null
+          total_jobs?: number | null
+          updated_at?: string
+        }
+        Update: {
+          avg_confidence?: number | null
+          avg_processing_time_ms?: number | null
+          created_at?: string
+          date?: string
+          document_types?: Json | null
+          failed_jobs?: number | null
+          id?: string
+          successful_jobs?: number | null
+          total_jobs?: number | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never

@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { Helmet } from 'react-helmet';
 import { 
   FileSearch, 
@@ -7,11 +7,16 @@ import {
   Bell, 
   Shield, 
   Layers,
-  Github
+  Github,
+  LayoutDashboard,
+  Upload
 } from 'lucide-react';
 import { OCRModule } from '@/components/ocr/OCRModule';
-
+import { OCRDashboard } from '@/components/ocr/OCRDashboard';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 const Index: React.FC = () => {
+  const [activeTab, setActiveTab] = useState('upload');
+  
   const features = [
     {
       icon: FileSearch,
@@ -112,9 +117,28 @@ const Index: React.FC = () => {
             </div>
           </section>
 
-          {/* Main OCR Module */}
+          {/* Main Content Tabs */}
           <section className="mb-16">
-            <OCRModule />
+            <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
+              <TabsList className="grid w-full max-w-md mx-auto grid-cols-2 mb-8">
+                <TabsTrigger value="upload" className="flex items-center gap-2">
+                  <Upload className="w-4 h-4" />
+                  Upload & Extract
+                </TabsTrigger>
+                <TabsTrigger value="dashboard" className="flex items-center gap-2">
+                  <LayoutDashboard className="w-4 h-4" />
+                  Dashboard
+                </TabsTrigger>
+              </TabsList>
+              
+              <TabsContent value="upload">
+                <OCRModule />
+              </TabsContent>
+              
+              <TabsContent value="dashboard">
+                <OCRDashboard />
+              </TabsContent>
+            </Tabs>
           </section>
 
           {/* Features Grid */}
