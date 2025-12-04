@@ -1,4 +1,5 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.4";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -29,44 +30,6 @@ interface OCRRequest {
     documentTypeHint?: string;
     extractReminders?: boolean;
   };
-}
-
-interface ExtractedData {
-  vendor: {
-    name: string | null;
-    address: string | null;
-    phone: string | null;
-    email: string | null;
-    gstin: string | null;
-    pan: string | null;
-  };
-  product: {
-    name: string | null;
-    model: string | null;
-    serialNumber: string | null;
-    category: string | null;
-    quantity: number | null;
-    unitPrice: number | null;
-    totalPrice: number | null;
-  };
-  dates: {
-    purchaseDate: string | null;
-    warrantyExpiry: string | null;
-    serviceInterval: string | null;
-    nextServiceDue: string | null;
-    invoiceDate: string | null;
-  };
-  amount: {
-    subtotal: number | null;
-    tax: number | null;
-    total: number | null;
-    currency: string;
-  };
-  custom: Array<{
-    fieldName: string;
-    value: string | null;
-    confidence: number;
-  }>;
 }
 
 // System prompt for structured extraction
@@ -163,6 +126,12 @@ serve(async (req) => {
   }
 
   const startTime = Date.now();
+  let jobId: string | null = null;
+
+  // Initialize Supabase client
+  const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
+  const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
+  const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
   try {
     const { imageBase64, fileName, fileType, fileSize, options } = await req.json() as OCRRequest;
@@ -177,9 +146,45 @@ serve(async (req) => {
       );
     }
 
+    // Create job record in database
+    const { data: job, error: jobError } = await supabase
+      .from('ocr_jobs')
+      .insert({
+        file_name: fileName,
+        file_type: fileType,
+        file_size: fileSize,
+        status: 'processing',
+        started_at: new Date().toISOString(),
+      })
+      .select()
+      .single();
+
+    if (jobError) {
+      console.error('Failed to create job record:', jobError);
+    } else {
+      jobId = job.id;
+      console.log(`Created OCR job: ${jobId}`);
+    }
+
     const LOVABLE_API_KEY = Deno.env.get('LOVABLE_API_KEY');
     if (!LOVABLE_API_KEY) {
       console.error('LOVABLE_API_KEY not configured');
+      
+      // Log error to database
+      if (jobId) {
+        await supabase.from('ocr_jobs').update({ 
+          status: 'failed', 
+          error_message: 'OCR service not configured',
+          completed_at: new Date().toISOString()
+        }).eq('id', jobId);
+        
+        await supabase.from('ocr_errors').insert({
+          job_id: jobId,
+          error_code: 'CONFIG_ERROR',
+          error_message: 'LOVABLE_API_KEY not configured',
+        });
+      }
+      
       return new Response(
         JSON.stringify({ 
           success: false, 
@@ -234,32 +239,32 @@ serve(async (req) => {
       const errorText = await aiResponse.text();
       console.error('AI API error:', aiResponse.status, errorText);
       
-      if (aiResponse.status === 429) {
-        return new Response(
-          JSON.stringify({ 
-            success: false, 
-            error: { code: 'RATE_LIMITED', message: 'Service is busy. Please try again in a moment.' } 
-          }),
-          { status: 429, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-        );
+      const errorCode = aiResponse.status === 429 ? 'RATE_LIMITED' : 
+                        aiResponse.status === 402 ? 'QUOTA_EXCEEDED' : 'AI_ERROR';
+      const errorMessage = aiResponse.status === 429 ? 'Service is busy. Please try again in a moment.' :
+                           aiResponse.status === 402 ? 'OCR quota exceeded. Please contact support.' :
+                           'Failed to process document';
+      
+      // Log error to database
+      if (jobId) {
+        await supabase.from('ocr_jobs').update({ 
+          status: 'failed', 
+          error_message: errorMessage,
+          completed_at: new Date().toISOString(),
+          processing_time_ms: Date.now() - startTime
+        }).eq('id', jobId);
+        
+        await supabase.from('ocr_errors').insert({
+          job_id: jobId,
+          error_code: errorCode,
+          error_message: errorMessage,
+          error_details: { statusCode: aiResponse.status, response: errorText }
+        });
       }
       
-      if (aiResponse.status === 402) {
-        return new Response(
-          JSON.stringify({ 
-            success: false, 
-            error: { code: 'QUOTA_EXCEEDED', message: 'OCR quota exceeded. Please contact support.' } 
-          }),
-          { status: 402, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-        );
-      }
-
       return new Response(
-        JSON.stringify({ 
-          success: false, 
-          error: { code: 'AI_ERROR', message: 'Failed to process document' } 
-        }),
-        { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        JSON.stringify({ success: false, error: { code: errorCode, message: errorMessage } }),
+        { status: aiResponse.status, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
 
@@ -268,6 +273,22 @@ serve(async (req) => {
 
     if (!aiContent) {
       console.error('No content in AI response');
+      
+      if (jobId) {
+        await supabase.from('ocr_jobs').update({ 
+          status: 'failed', 
+          error_message: 'No extraction result returned',
+          completed_at: new Date().toISOString(),
+          processing_time_ms: Date.now() - startTime
+        }).eq('id', jobId);
+        
+        await supabase.from('ocr_errors').insert({
+          job_id: jobId,
+          error_code: 'EMPTY_RESPONSE',
+          error_message: 'No extraction result returned',
+        });
+      }
+      
       return new Response(
         JSON.stringify({ 
           success: false, 
@@ -295,6 +316,23 @@ serve(async (req) => {
       extractedData = JSON.parse(cleanContent);
     } catch (parseError) {
       console.error('Failed to parse AI response:', parseError, 'Content:', aiContent);
+      
+      if (jobId) {
+        await supabase.from('ocr_jobs').update({ 
+          status: 'failed', 
+          error_message: 'Failed to parse extraction results',
+          completed_at: new Date().toISOString(),
+          processing_time_ms: Date.now() - startTime
+        }).eq('id', jobId);
+        
+        await supabase.from('ocr_errors').insert({
+          job_id: jobId,
+          error_code: 'PARSE_ERROR',
+          error_message: 'Failed to parse extraction results',
+          error_details: { rawContent: aiContent }
+        });
+      }
+      
       return new Response(
         JSON.stringify({ 
           success: false, 
@@ -309,7 +347,7 @@ serve(async (req) => {
 
     // Build the final OCR result
     const ocrResult = {
-      id: crypto.randomUUID(),
+      id: jobId || crypto.randomUUID(),
       status: 'completed',
       documentType: extractedData.documentType || 'unknown',
       extractedFields: extractedData.extractedFields || {
@@ -339,15 +377,71 @@ serve(async (req) => {
       } : undefined
     };
 
+    // Update job and save result to database
+    if (jobId) {
+      await supabase.from('ocr_jobs').update({
+        status: 'completed',
+        completed_at: new Date().toISOString(),
+        processing_time_ms: processingDuration
+      }).eq('id', jobId);
+
+      // Save OCR result
+      const { error: resultError } = await supabase.from('ocr_results').insert({
+        job_id: jobId,
+        document_type: ocrResult.documentType,
+        raw_text: ocrResult.rawText,
+        confidence: ocrResult.confidence,
+        extracted_data: ocrResult.extractedFields,
+        vendor_details: ocrResult.extractedFields.vendor,
+        product_details: ocrResult.extractedFields.product,
+        date_details: ocrResult.extractedFields.dates,
+        reminder_suggestions: ocrResult.reminderData?.suggestedReminders || [],
+        metadata: ocrResult.metadata
+      });
+
+      if (resultError) {
+        console.error('Failed to save OCR result:', resultError);
+      }
+
+      // Log any extraction errors/warnings
+      if (ocrResult.errors && ocrResult.errors.length > 0) {
+        for (const err of ocrResult.errors) {
+          await supabase.from('ocr_errors').insert({
+            job_id: jobId,
+            error_code: err.code,
+            error_message: err.message,
+            error_details: { field: err.field, severity: err.severity }
+          });
+        }
+      }
+    }
+
     console.log(`OCR completed in ${processingDuration}ms, confidence: ${ocrResult.confidence}`);
 
     return new Response(
-      JSON.stringify({ success: true, data: ocrResult }),
+      JSON.stringify({ success: true, data: ocrResult, jobId }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
 
   } catch (error) {
     console.error('OCR processing error:', error);
+    
+    // Log error to database
+    if (jobId) {
+      await supabase.from('ocr_jobs').update({ 
+        status: 'failed', 
+        error_message: error instanceof Error ? error.message : 'Unknown error',
+        completed_at: new Date().toISOString(),
+        processing_time_ms: Date.now() - startTime
+      }).eq('id', jobId);
+      
+      await supabase.from('ocr_errors').insert({
+        job_id: jobId,
+        error_code: 'PROCESSING_ERROR',
+        error_message: error instanceof Error ? error.message : 'Unknown error occurred',
+      });
+    }
+    
     return new Response(
       JSON.stringify({ 
         success: false, 
