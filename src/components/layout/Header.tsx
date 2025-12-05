@@ -11,7 +11,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
-import { FileSearch, LogOut, User, Settings, Moon, Sun } from 'lucide-react';
+import { ScanLine, LogOut, User, Moon, Sun } from 'lucide-react';
 import { toast } from '@/hooks/use-toast';
 
 export const Header: React.FC = () => {
@@ -26,7 +26,7 @@ export const Header: React.FC = () => {
 
   const handleSignOut = async () => {
     await signOut();
-    toast({ title: 'Signed out', description: 'You have been signed out successfully.' });
+    toast({ title: 'Signed out', description: 'You have been signed out.' });
   };
 
   const getInitials = () => {
@@ -40,67 +40,54 @@ export const Header: React.FC = () => {
   };
 
   return (
-    <header className="border-b border-border bg-card/80 backdrop-blur-sm sticky top-0 z-50">
-      <div className="container mx-auto px-4 py-3">
+    <header className="border-b border-border bg-card sticky top-0 z-50">
+      <div className="px-4 py-3">
         <div className="flex items-center justify-between">
-          <Link to="/" className="flex items-center gap-3 hover:opacity-80 transition-opacity">
-            <div className="p-2 rounded-lg gradient-primary">
-              <FileSearch className="h-5 w-5 text-primary-foreground" />
+          <Link to="/" className="flex items-center gap-2">
+            <div className="p-1.5 rounded-lg gradient-primary">
+              <ScanLine className="h-5 w-5 text-primary-foreground" />
             </div>
-            <div>
-              <h1 className="text-lg font-bold text-foreground">OCR Extractor</h1>
-              <p className="text-xs text-muted-foreground hidden sm:block">Document Intelligence</p>
-            </div>
+            <span className="font-bold text-foreground">OCR Scan</span>
           </Link>
 
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-2">
             {/* Theme Toggle */}
             <Button
               variant="ghost"
               size="icon"
               onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')}
-              className="rounded-full"
+              className="h-9 w-9"
             >
-              {theme === 'dark' ? <Sun className="h-5 w-5" /> : <Moon className="h-5 w-5" />}
+              {theme === 'dark' ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
             </Button>
 
             {user ? (
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
-                  <Button variant="ghost" className="relative h-10 w-10 rounded-full">
-                    <Avatar className="h-10 w-10 border-2 border-primary/20">
+                  <Button variant="ghost" className="relative h-9 w-9 rounded-full p-0">
+                    <Avatar className="h-9 w-9 border border-border">
                       <AvatarImage src={profile?.avatar_url || undefined} alt={profile?.display_name || 'User'} />
-                      <AvatarFallback className="bg-primary/10 text-primary font-semibold">
+                      <AvatarFallback className="bg-primary/10 text-primary text-sm font-medium">
                         {getInitials()}
                       </AvatarFallback>
                     </Avatar>
                   </Button>
                 </DropdownMenuTrigger>
-                <DropdownMenuContent className="w-56" align="end" forceMount>
+                <DropdownMenuContent className="w-52" align="end" forceMount>
                   <DropdownMenuLabel className="font-normal">
                     <div className="flex flex-col space-y-1">
-                      <p className="text-sm font-medium leading-none">
+                      <p className="text-sm font-medium">
                         {profile?.display_name || 'User'}
                       </p>
-                      <p className="text-xs leading-none text-muted-foreground">
+                      <p className="text-xs text-muted-foreground truncate">
                         {user.email || profile?.phone}
                       </p>
                     </div>
                   </DropdownMenuLabel>
                   <DropdownMenuSeparator />
-                  <DropdownMenuItem className="gap-2">
-                    <User className="h-4 w-4" />
-                    Profile
-                  </DropdownMenuItem>
-                  <DropdownMenuItem className="gap-2">
-                    <Settings className="h-4 w-4" />
-                    Settings
-                  </DropdownMenuItem>
-                  <DropdownMenuSeparator />
-                  <div className="px-2 py-1.5">
-                    <div className="text-xs text-muted-foreground mb-1">Extractions</div>
-                    <div className="flex items-center justify-between text-sm">
-                      <span>Total: {profile?.total_extractions || 0}</span>
+                  <div className="px-2 py-2">
+                    <div className="flex justify-between text-xs">
+                      <span className="text-muted-foreground">Scans: {profile?.total_extractions || 0}</span>
                       <span className="text-success">Success: {profile?.successful_extractions || 0}</span>
                     </div>
                   </div>
@@ -113,7 +100,7 @@ export const Header: React.FC = () => {
               </DropdownMenu>
             ) : (
               <Link to="/auth">
-                <Button variant="default" size="sm">
+                <Button size="sm" className="h-9">
                   Sign In
                 </Button>
               </Link>

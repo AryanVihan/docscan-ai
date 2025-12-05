@@ -1,6 +1,7 @@
 import React, { useCallback, useState } from 'react';
-import { Upload, FileText, Image, X, AlertCircle } from 'lucide-react';
+import { Upload, FileText, Image, X, AlertCircle, Camera } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { Button } from '@/components/ui/button';
 import type { UploadedFile } from '@/types/ocr';
 
 interface FileUploadZoneProps {
@@ -8,7 +9,7 @@ interface FileUploadZoneProps {
   uploadedFiles: UploadedFile[];
   onRemoveFile: (id: string) => void;
   maxFiles?: number;
-  maxFileSize?: number; // in MB
+  maxFileSize?: number;
   disabled?: boolean;
 }
 
@@ -117,141 +118,136 @@ export const FileUploadZone: React.FC<FileUploadZoneProps> = ({
 
   const getFileIcon = (type: string) => {
     if (type.startsWith('image/')) {
-      return <Image className="h-8 w-8 text-primary" />;
+      return <Image className="h-5 w-5 text-muted-foreground" />;
     }
-    return <FileText className="h-8 w-8 text-primary" />;
+    return <FileText className="h-5 w-5 text-muted-foreground" />;
   };
 
   const formatFileSize = (bytes: number) => {
     if (bytes < 1024) return `${bytes} B`;
-    if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+    if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(0)} KB`;
     return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
   };
 
   return (
-    <div className="space-y-4">
-      {/* Drop Zone */}
+    <div className="space-y-3">
+      {/* Drop Zone - Compact for mobile */}
       <div
         onDrop={handleDrop}
         onDragOver={handleDragOver}
         onDragLeave={handleDragLeave}
         className={cn(
-          'dropzone cursor-pointer',
-          isDragActive && 'dropzone-active',
+          'relative rounded-xl border-2 border-dashed transition-all p-6',
+          isDragActive ? 'border-primary bg-primary/5' : 'border-border',
           disabled && 'opacity-50 cursor-not-allowed'
         )}
       >
         <input
           type="file"
+          id="file-upload"
           multiple
           accept={ACCEPTED_EXTENSIONS}
           onChange={handleFileInput}
-          className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
+          className="hidden"
+          disabled={disabled}
+        />
+        
+        <input
+          type="file"
+          id="camera-upload"
+          accept="image/*"
+          capture="environment"
+          onChange={handleFileInput}
+          className="hidden"
           disabled={disabled}
         />
 
-        <div className="flex flex-col items-center gap-4 pointer-events-none">
-          <div className={cn(
-            'p-4 rounded-full transition-colors duration-300',
-            isDragActive ? 'bg-primary/20' : 'bg-secondary'
-          )}>
-            <Upload className={cn(
-              'h-8 w-8 transition-colors duration-300',
-              isDragActive ? 'text-primary' : 'text-muted-foreground'
-            )} />
-          </div>
-
-          <div className="text-center">
-            <p className="text-base font-medium text-foreground">
-              {isDragActive ? 'Drop files here' : 'Drag & drop documents'}
-            </p>
-            <p className="mt-1 text-sm text-muted-foreground">
-              or click to browse
-            </p>
-          </div>
-
-          <div className="flex flex-wrap justify-center gap-2 text-xs text-muted-foreground">
-            <span className="px-2 py-1 rounded-md bg-secondary">JPG</span>
-            <span className="px-2 py-1 rounded-md bg-secondary">PNG</span>
-            <span className="px-2 py-1 rounded-md bg-secondary">PDF</span>
-            <span className="px-2 py-1 rounded-md bg-secondary">WebP</span>
-          </div>
-
-          <p className="text-xs text-muted-foreground">
-            Max {maxFileSize}MB per file • Up to {maxFiles} files
+        <label
+          htmlFor="file-upload"
+          className={cn('block text-center', !disabled && 'cursor-pointer')}
+        >
+          <Upload className="h-8 w-8 mx-auto text-muted-foreground mb-3" />
+          <p className="text-sm font-medium text-foreground mb-1">
+            Tap to upload
           </p>
-        </div>
+          <p className="text-xs text-muted-foreground">
+            JPG, PNG, PDF • Max {maxFileSize}MB
+          </p>
+        </label>
       </div>
+
+      {/* Camera Button */}
+      <Button
+        variant="outline"
+        className="w-full h-12"
+        onClick={() => document.getElementById('camera-upload')?.click()}
+        disabled={disabled}
+      >
+        <Camera className="h-4 w-4 mr-2" />
+        Take Photo
+      </Button>
 
       {/* Error Message */}
       {error && (
-        <div className="flex items-center gap-2 p-3 rounded-lg bg-destructive/10 text-destructive text-sm animate-fade-up">
-          <AlertCircle className="h-4 w-4 flex-shrink-0" />
+        <div className="flex items-start gap-2 p-3 rounded-lg bg-destructive/10 text-destructive text-sm">
+          <AlertCircle className="h-4 w-4 mt-0.5 flex-shrink-0" />
           <span>{error}</span>
         </div>
       )}
 
-      {/* Uploaded Files List */}
+      {/* Uploaded Files List - Compact */}
       {uploadedFiles.length > 0 && (
         <div className="space-y-2">
-          <p className="text-sm font-medium text-foreground">
-            Uploaded Files ({uploadedFiles.length}/{maxFiles})
-          </p>
-          <div className="grid gap-2">
-            {uploadedFiles.map((file) => (
-              <div
-                key={file.id}
-                className="flex items-center gap-3 p-3 rounded-lg bg-card border border-border group hover:border-primary/30 transition-colors"
-              >
-                {file.preview ? (
-                  <img
-                    src={file.preview}
-                    alt={file.file.name}
-                    className="h-10 w-10 rounded object-cover"
-                  />
-                ) : (
-                  getFileIcon(file.file.type)
-                )}
-
-                <div className="flex-1 min-w-0">
-                  <p className="text-sm font-medium text-foreground truncate">
-                    {file.file.name}
-                  </p>
-                  <p className="text-xs text-muted-foreground">
-                    {formatFileSize(file.file.size)}
-                  </p>
+          {uploadedFiles.map((file) => (
+            <div
+              key={file.id}
+              className="flex items-center gap-3 p-3 rounded-lg bg-card border border-border"
+            >
+              {file.preview ? (
+                <img
+                  src={file.preview}
+                  alt={file.file.name}
+                  className="h-10 w-10 rounded object-cover flex-shrink-0"
+                />
+              ) : (
+                <div className="h-10 w-10 rounded bg-muted flex items-center justify-center flex-shrink-0">
+                  {getFileIcon(file.file.type)}
                 </div>
+              )}
 
+              <div className="flex-1 min-w-0">
+                <p className="text-sm font-medium text-foreground truncate">
+                  {file.file.name}
+                </p>
+                <p className="text-xs text-muted-foreground">
+                  {formatFileSize(file.file.size)}
+                </p>
+              </div>
+
+              <div className="flex items-center gap-2 flex-shrink-0">
                 {file.status === 'pending' && (
                   <button
                     onClick={() => onRemoveFile(file.id)}
-                    className="p-1.5 rounded-md text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-colors opacity-0 group-hover:opacity-100"
+                    className="p-1.5 rounded text-muted-foreground hover:text-destructive hover:bg-destructive/10"
                   >
                     <X className="h-4 w-4" />
                   </button>
                 )}
 
-                {file.status === 'extracting' && (
-                  <div className="flex items-center gap-2">
-                    <div className="pulse-dot text-primary" />
-                    <span className="text-xs text-primary">Processing</span>
-                  </div>
+                {(file.status === 'preprocessing' || file.status === 'extracting' || file.status === 'parsing') && (
+                  <div className="pulse-dot text-primary" />
                 )}
 
                 {file.status === 'completed' && (
-                  <span className="status-badge status-success">
-                    Extracted
-                  </span>
+                  <span className="text-xs text-success font-medium">Done</span>
                 )}
 
                 {file.status === 'failed' && (
-                  <span className="status-badge status-error">
-                    Failed
-                  </span>
+                  <span className="text-xs text-destructive font-medium">Failed</span>
                 )}
               </div>
-            ))}
-          </div>
+            </div>
+          ))}
         </div>
       )}
     </div>

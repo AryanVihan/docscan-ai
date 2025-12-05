@@ -1,36 +1,30 @@
 import React, { useState } from 'react';
 import { 
-  FileSearch, 
-  Zap, 
-  Download, 
+  Play, 
   Trash2, 
+  Download,
   Settings2,
-  Languages,
-  Sparkles
+  ChevronDown,
+  ChevronUp
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { Card, CardContent } from '@/components/ui/card';
+import { Switch } from '@/components/ui/switch';
+import { Label } from '@/components/ui/label';
+import {
+  Collapsible,
+  CollapsibleContent,
+  CollapsibleTrigger,
+} from '@/components/ui/collapsible';
 import { FileUploadZone } from './FileUploadZone';
 import { ProcessingStatus } from './ProcessingStatus';
 import { ResultsViewer } from './ResultsViewer';
 import { useOCR } from '@/hooks/useOCR';
-import { cn } from '@/lib/utils';
 
-interface OCRModuleProps {
-  className?: string;
-}
-
-export const OCRModule: React.FC<OCRModuleProps> = ({ className }) => {
+export const OCRModule: React.FC = () => {
   const [showSettings, setShowSettings] = useState(false);
-  const [selectedResultIndex, setSelectedResultIndex] = useState<number | null>(null);
-  
-  // OCR options
-  const [ocrOptions, setOcrOptions] = useState({
-    autoPreprocess: true,
-    enhanceContrast: true,
-    denoise: true,
-    extractReminders: true,
-    languages: ['en', 'hi'],
-  });
+  const [preprocessEnabled, setPreprocessEnabled] = useState(true);
+  const [extractReminders, setExtractReminders] = useState(true);
 
   const {
     files,
@@ -41,11 +35,16 @@ export const OCRModule: React.FC<OCRModuleProps> = ({ className }) => {
     processFiles,
     clearAll,
     exportResults,
-  } = useOCR(ocrOptions);
+  } = useOCR({
+    autoPreprocess: preprocessEnabled,
+    extractReminders,
+  });
 
-  const pendingCount = files.filter(f => f.status === 'pending').length;
+  const pendingFiles = files.filter(f => f.status === 'pending');
   const processingFile = files.find(f => 
-    ['preprocessing', 'extracting', 'parsing'].includes(f.status)
+    f.status === 'preprocessing' || 
+    f.status === 'extracting' || 
+    f.status === 'parsing'
   );
 
   const handleExportSingleResult = (index: number) => {
@@ -66,125 +65,8 @@ export const OCRModule: React.FC<OCRModuleProps> = ({ className }) => {
     URL.revokeObjectURL(url);
   };
 
-  const availableLanguages = [
-    { code: 'en', name: 'English' },
-    { code: 'hi', name: 'Hindi' },
-    { code: 'bn', name: 'Bengali' },
-    { code: 'ta', name: 'Tamil' },
-    { code: 'te', name: 'Telugu' },
-    { code: 'mr', name: 'Marathi' },
-    { code: 'gu', name: 'Gujarati' },
-    { code: 'kn', name: 'Kannada' },
-    { code: 'ml', name: 'Malayalam' },
-    { code: 'pa', name: 'Punjabi' },
-  ];
-
-  const toggleLanguage = (code: string) => {
-    setOcrOptions(prev => ({
-      ...prev,
-      languages: prev.languages.includes(code)
-        ? prev.languages.filter(l => l !== code)
-        : [...prev.languages, code],
-    }));
-  };
-
   return (
-    <div className={cn('space-y-6', className)}>
-      {/* Header */}
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-3">
-          <div className="p-2.5 rounded-xl gradient-primary">
-            <FileSearch className="h-6 w-6 text-primary-foreground" />
-          </div>
-          <div>
-            <h2 className="text-xl font-semibold text-foreground">
-              OCR Document Extractor
-            </h2>
-            <p className="text-sm text-muted-foreground">
-              Extract structured data from invoices, receipts, and documents
-            </p>
-          </div>
-        </div>
-
-        <div className="flex items-center gap-2">
-          <Button
-            variant="ghost"
-            size="icon"
-            onClick={() => setShowSettings(!showSettings)}
-            className={cn(showSettings && 'bg-secondary')}
-          >
-            <Settings2 className="h-5 w-5" />
-          </Button>
-        </div>
-      </div>
-
-      {/* Settings Panel */}
-      {showSettings && (
-        <div className="card-elevated p-4 animate-fade-up">
-          <h3 className="font-medium text-foreground mb-4 flex items-center gap-2">
-            <Sparkles className="h-4 w-4 text-primary" />
-            Processing Options
-          </h3>
-
-          <div className="grid md:grid-cols-2 gap-6">
-            {/* Preprocessing Options */}
-            <div className="space-y-3">
-              <h4 className="text-sm font-medium text-muted-foreground">
-                Image Enhancement
-              </h4>
-              
-              {[
-                { key: 'autoPreprocess', label: 'Auto Preprocess' },
-                { key: 'enhanceContrast', label: 'Enhance Contrast' },
-                { key: 'denoise', label: 'Noise Reduction' },
-                { key: 'extractReminders', label: 'Extract Reminders' },
-              ].map(({ key, label }) => (
-                <label
-                  key={key}
-                  className="flex items-center gap-3 cursor-pointer"
-                >
-                  <input
-                    type="checkbox"
-                    checked={ocrOptions[key as keyof typeof ocrOptions] as boolean}
-                    onChange={(e) => setOcrOptions(prev => ({
-                      ...prev,
-                      [key]: e.target.checked,
-                    }))}
-                    className="w-4 h-4 rounded border-border text-primary focus:ring-primary"
-                  />
-                  <span className="text-sm text-foreground">{label}</span>
-                </label>
-              ))}
-            </div>
-
-            {/* Language Selection */}
-            <div className="space-y-3">
-              <h4 className="text-sm font-medium text-muted-foreground flex items-center gap-2">
-                <Languages className="h-4 w-4" />
-                Languages
-              </h4>
-              
-              <div className="flex flex-wrap gap-2">
-                {availableLanguages.map(lang => (
-                  <button
-                    key={lang.code}
-                    onClick={() => toggleLanguage(lang.code)}
-                    className={cn(
-                      'px-3 py-1.5 rounded-lg text-sm transition-colors',
-                      ocrOptions.languages.includes(lang.code)
-                        ? 'bg-primary text-primary-foreground'
-                        : 'bg-secondary text-secondary-foreground hover:bg-secondary/80'
-                    )}
-                  >
-                    {lang.name}
-                  </button>
-                ))}
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
-
+    <div className="space-y-4">
       {/* Upload Zone */}
       <FileUploadZone
         onFilesAdded={addFiles}
@@ -192,6 +74,45 @@ export const OCRModule: React.FC<OCRModuleProps> = ({ className }) => {
         onRemoveFile={removeFile}
         disabled={isProcessing}
       />
+
+      {/* Settings - Collapsible */}
+      <Collapsible open={showSettings} onOpenChange={setShowSettings}>
+        <CollapsibleTrigger asChild>
+          <Button variant="ghost" size="sm" className="w-full justify-between h-10">
+            <span className="flex items-center gap-2 text-muted-foreground">
+              <Settings2 className="h-4 w-4" />
+              Settings
+            </span>
+            {showSettings ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
+          </Button>
+        </CollapsibleTrigger>
+        <CollapsibleContent>
+          <Card className="border-border/50 mt-2">
+            <CardContent className="p-4 space-y-4">
+              <div className="flex items-center justify-between">
+                <Label htmlFor="preprocess" className="text-sm">
+                  Auto-enhance images
+                </Label>
+                <Switch
+                  id="preprocess"
+                  checked={preprocessEnabled}
+                  onCheckedChange={setPreprocessEnabled}
+                />
+              </div>
+              <div className="flex items-center justify-between">
+                <Label htmlFor="reminders" className="text-sm">
+                  Extract reminders
+                </Label>
+                <Switch
+                  id="reminders"
+                  checked={extractReminders}
+                  onCheckedChange={setExtractReminders}
+                />
+              </div>
+            </CardContent>
+          </Card>
+        </CollapsibleContent>
+      </Collapsible>
 
       {/* Processing Status */}
       {processingFile && (
@@ -204,36 +125,24 @@ export const OCRModule: React.FC<OCRModuleProps> = ({ className }) => {
 
       {/* Action Buttons */}
       {files.length > 0 && (
-        <div className="flex flex-wrap gap-3">
+        <div className="flex gap-2">
           <Button
-            variant="gradient"
-            size="lg"
             onClick={processFiles}
-            disabled={isProcessing || pendingCount === 0}
+            disabled={isProcessing || pendingFiles.length === 0}
+            className="flex-1 h-12"
           >
-            <Zap className="h-5 w-5" />
-            {isProcessing ? 'Processing...' : `Extract Data (${pendingCount})`}
+            <Play className="h-4 w-4 mr-2" />
+            {isProcessing ? 'Processing...' : `Scan ${pendingFiles.length > 0 ? `(${pendingFiles.length})` : ''}`}
           </Button>
-
-          {results.length > 0 && (
-            <Button
-              variant="outline"
-              size="lg"
-              onClick={exportResults}
-            >
-              <Download className="h-5 w-5" />
-              Export All ({results.length})
-            </Button>
-          )}
-
+          
           <Button
-            variant="ghost"
-            size="lg"
+            variant="outline"
+            size="icon"
             onClick={clearAll}
             disabled={isProcessing}
+            className="h-12 w-12"
           >
-            <Trash2 className="h-5 w-5" />
-            Clear All
+            <Trash2 className="h-4 w-4" />
           </Button>
         </div>
       )}
@@ -241,71 +150,31 @@ export const OCRModule: React.FC<OCRModuleProps> = ({ className }) => {
       {/* Results */}
       {results.length > 0 && (
         <div className="space-y-4">
-          <h3 className="text-lg font-semibold text-foreground">
-            Extraction Results ({results.length})
-          </h3>
-
-          {/* Result Tabs */}
-          {results.length > 1 && (
-            <div className="flex gap-2 overflow-x-auto pb-2">
-              {results.map((result, index) => (
-                <button
-                  key={result.id}
-                  onClick={() => setSelectedResultIndex(
-                    selectedResultIndex === index ? null : index
-                  )}
-                  className={cn(
-                    'px-4 py-2 rounded-lg text-sm font-medium whitespace-nowrap transition-colors',
-                    selectedResultIndex === index
-                      ? 'bg-primary text-primary-foreground'
-                      : 'bg-secondary text-secondary-foreground hover:bg-secondary/80'
-                  )}
-                >
-                  {result.metadata.fileName}
-                </button>
-              ))}
-            </div>
-          )}
-
-          {/* Single Result or Selected Result */}
-          {(selectedResultIndex !== null || results.length === 1) && (
-            <ResultsViewer
-              result={results[selectedResultIndex ?? 0]}
-              onExportJSON={() => handleExportSingleResult(selectedResultIndex ?? 0)}
-            />
-          )}
-
-          {/* All Results Grid (when no selection and multiple results) */}
-          {selectedResultIndex === null && results.length > 1 && (
-            <div className="grid gap-4">
-              {results.map((result, index) => (
-                <div
-                  key={result.id}
-                  className="card-interactive p-4 cursor-pointer"
-                  onClick={() => setSelectedResultIndex(index)}
-                >
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-3">
-                      <div className="p-2 rounded-lg bg-primary/10">
-                        <FileSearch className="h-5 w-5 text-primary" />
-                      </div>
-                      <div>
-                        <p className="font-medium text-foreground">
-                          {result.metadata.fileName}
-                        </p>
-                        <p className="text-sm text-muted-foreground">
-                          {result.documentType.replace(/_/g, ' ')} • {Math.round(result.confidence * 100)}% confidence
-                        </p>
-                      </div>
-                    </div>
-                    <Button variant="ghost" size="sm">
-                      View Details
-                    </Button>
-                  </div>
-                </div>
-              ))}
-            </div>
-          )}
+          <div className="flex items-center justify-between">
+            <h3 className="font-semibold text-foreground">
+              Results ({results.length})
+            </h3>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={exportResults}
+              className="h-8"
+            >
+              <Download className="h-3.5 w-3.5 mr-1.5" />
+              Export
+            </Button>
+          </div>
+          
+          {/* Show each result */}
+          <div className="space-y-4">
+            {results.map((result, index) => (
+              <ResultsViewer 
+                key={result.id} 
+                result={result} 
+                onExportJSON={() => handleExportSingleResult(index)}
+              />
+            ))}
+          </div>
         </div>
       )}
     </div>
