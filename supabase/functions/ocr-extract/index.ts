@@ -25,6 +25,7 @@ interface OCRRequest {
   fileName: string;
   fileType: string;
   fileSize: number;
+  userId?: string;
   options?: {
     language?: string[];
     documentTypeHint?: string;
@@ -134,7 +135,7 @@ serve(async (req) => {
   const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
   try {
-    const { imageBase64, fileName, fileType, fileSize, options } = await req.json() as OCRRequest;
+    const { imageBase64, fileName, fileType, fileSize, userId, options } = await req.json() as OCRRequest;
 
     if (!imageBase64) {
       return new Response(
@@ -153,6 +154,7 @@ serve(async (req) => {
         file_name: fileName,
         file_type: fileType,
         file_size: fileSize,
+        user_id: userId || null,
         status: 'processing',
         started_at: new Date().toISOString(),
       })
