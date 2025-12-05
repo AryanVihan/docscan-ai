@@ -1,6 +1,7 @@
 import { useState, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { preprocessImage, analyzeImageQuality } from '@/lib/image-preprocessing';
+import { useAuth } from '@/contexts/AuthContext';
 import type { 
   UploadedFile, 
   OCRResult, 
@@ -38,6 +39,7 @@ export const useOCR = (options: UseOCROptions = {}): UseOCRReturn => {
     languages = ['en', 'hi'],
   } = options;
 
+  const { user } = useAuth();
   const [files, setFiles] = useState<UploadedFile[]>([]);
   const [results, setResults] = useState<OCRResult[]>([]);
   const [isProcessing, setIsProcessing] = useState(false);
@@ -117,6 +119,7 @@ export const useOCR = (options: UseOCROptions = {}): UseOCRReturn => {
           fileName: file.file.name,
           fileType: file.file.type,
           fileSize: file.file.size,
+          userId: user?.id,
           options: {
             language: languages,
             extractReminders,
