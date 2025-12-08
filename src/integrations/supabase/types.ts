@@ -219,6 +219,59 @@ export type Database = {
         }
         Relationships: []
       }
+      reminders: {
+        Row: {
+          created_at: string
+          description: string | null
+          id: string
+          is_dismissed: boolean | null
+          is_notified: boolean | null
+          notify_before_days: number | null
+          ocr_result_id: string | null
+          reminder_date: string
+          reminder_type: string
+          title: string
+          updated_at: string
+          user_id: string | null
+        }
+        Insert: {
+          created_at?: string
+          description?: string | null
+          id?: string
+          is_dismissed?: boolean | null
+          is_notified?: boolean | null
+          notify_before_days?: number | null
+          ocr_result_id?: string | null
+          reminder_date: string
+          reminder_type: string
+          title: string
+          updated_at?: string
+          user_id?: string | null
+        }
+        Update: {
+          created_at?: string
+          description?: string | null
+          id?: string
+          is_dismissed?: boolean | null
+          is_notified?: boolean | null
+          notify_before_days?: number | null
+          ocr_result_id?: string | null
+          reminder_date?: string
+          reminder_type?: string
+          title?: string
+          updated_at?: string
+          user_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "reminders_ocr_result_id_fkey"
+            columns: ["ocr_result_id"]
+            isOneToOne: false
+            referencedRelation: "ocr_results"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Views: {
       [_ in never]: never

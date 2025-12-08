@@ -109,8 +109,9 @@ export interface OCRResult {
   // For reminder automation integration
   reminderData?: {
     suggestedReminders: Array<{
-      type: 'warranty_expiry' | 'service_due' | 'payment_due';
+      type: 'warranty_expiry' | 'service_due' | 'payment_due' | 'subscription_renewal' | 'custom';
       date: string;
+      title: string;
       description: string;
       priority: 'low' | 'medium' | 'high';
     }>;
