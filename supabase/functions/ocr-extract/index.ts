@@ -33,18 +33,27 @@ interface OCRRequest {
   };
 }
 
-// System prompt for structured extraction
+// System prompt for structured extraction - PRIORITIZES DATES AND REMINDERS
 const SYSTEM_PROMPT = `You are an expert OCR and document analysis system specialized in extracting structured information from invoices, bills, warranty cards, receipts, product manuals, and service documents.
 
-Your task is to analyze the provided document image and extract information into a structured JSON format.
+**CRITICAL PRIORITY**: Your PRIMARY goal is to find and extract ALL DATE-RELATED INFORMATION, especially:
+- Warranty expiry dates
+- Service due dates / Next service dates
+- Subscription renewal dates
+- Payment due dates
+- Insurance expiry dates
+- Product expiry dates
+- License/registration renewal dates
 
 EXTRACTION RULES:
-1. Extract all visible text accurately, handling multilingual content (English and Indian regional languages)
-2. Identify and classify the document type
-3. Extract key fields with high precision
-4. Provide confidence scores (0-1) for extracted fields
-5. Handle low-quality images, handwritten text, and skewed documents
-6. Return null for fields that cannot be found or are unclear
+1. **DATES ARE TOP PRIORITY** - Extract ALL visible dates, especially expiry and service dates
+2. Extract all visible text accurately, handling multilingual content (English and Indian regional languages)
+3. Identify and classify the document type
+4. Extract key fields with high precision
+5. Provide confidence scores (0-1) for extracted fields
+6. Handle low-quality images, handwritten text, and skewed documents
+7. Return null for fields that cannot be found or are unclear
+8. **ALWAYS suggest reminders** for any date found that represents a deadline or expiry
 
 DOCUMENT TYPES:
 - invoice: Commercial invoices with line items
@@ -53,7 +62,16 @@ DOCUMENT TYPES:
 - receipt: Purchase receipts
 - product_manual: User manuals, guides
 - service_document: Service records, maintenance logs
+- insurance: Insurance policies
+- subscription: Subscription receipts/confirmations
 - unknown: Cannot determine type
+
+DATE EXTRACTION PRIORITIES (look for these keywords):
+- "Valid till", "Expires on", "Expiry date", "Expiry", "Valid until"
+- "Next service", "Service due", "Due date", "Renewal date"
+- "Warranty period", "Warranty valid", "Guarantee period"
+- "Premium due", "Payment due", "Installment date"
+- Look for patterns like: DD/MM/YYYY, DD-MM-YYYY, Month DD, YYYY, etc.
 
 OUTPUT FORMAT:
 You MUST respond with ONLY a valid JSON object (no markdown, no explanation) with this exact structure:
@@ -80,11 +98,13 @@ You MUST respond with ONLY a valid JSON object (no markdown, no explanation) wit
       "totalPrice": number or null
     },
     "dates": {
-      "purchaseDate": "string or null (format: YYYY-MM-DD if possible)",
-      "warrantyExpiry": "string or null",
+      "purchaseDate": "string or null (format: YYYY-MM-DD)",
+      "warrantyExpiry": "string or null (format: YYYY-MM-DD) - CRITICAL: Extract if visible",
       "serviceInterval": "string or null (e.g., '6 months', '10000 km')",
-      "nextServiceDue": "string or null",
-      "invoiceDate": "string or null"
+      "nextServiceDue": "string or null (format: YYYY-MM-DD) - CRITICAL: Extract if visible",
+      "invoiceDate": "string or null",
+      "expiryDate": "string or null (format: YYYY-MM-DD) - For any product/service expiry",
+      "renewalDate": "string or null (format: YYYY-MM-DD) - For subscriptions/insurance"
     },
     "amount": {
       "subtotal": number or null,
@@ -104,9 +124,10 @@ You MUST respond with ONLY a valid JSON object (no markdown, no explanation) wit
   "detectedLanguages": ["string"],
   "suggestedReminders": [
     {
-      "type": "warranty_expiry | service_due | payment_due",
-      "date": "string",
-      "description": "string",
+      "type": "warranty_expiry | service_due | subscription_renewal | payment_due | custom",
+      "date": "YYYY-MM-DD format - REQUIRED",
+      "title": "short title for the reminder",
+      "description": "what needs to be done",
       "priority": "low | medium | high"
     }
   ],
@@ -118,7 +139,14 @@ You MUST respond with ONLY a valid JSON object (no markdown, no explanation) wit
       "severity": "warning | error"
     }
   ]
-}`;
+}
+
+REMINDER GENERATION RULES:
+1. Create a reminder for EVERY date found that represents a future deadline
+2. For warranty expiry: suggest reminder 7-30 days before
+3. For service due: suggest reminder 7 days before
+4. For subscriptions: suggest reminder 3-7 days before renewal
+5. Use clear, actionable titles like "Car Insurance Expiring" or "AC Service Due"`;
 
 serve(async (req) => {
   // Handle CORS preflight

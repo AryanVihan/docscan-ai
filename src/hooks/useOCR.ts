@@ -2,6 +2,7 @@ import { useState, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { preprocessImage, analyzeImageQuality } from '@/lib/image-preprocessing';
 import { useAuth } from '@/contexts/AuthContext';
+import { useReminders } from '@/hooks/useReminders';
 import type { 
   UploadedFile, 
   OCRResult, 
@@ -40,6 +41,7 @@ export const useOCR = (options: UseOCROptions = {}): UseOCRReturn => {
   } = options;
 
   const { user } = useAuth();
+  const { createRemindersFromOCR } = useReminders();
   const [files, setFiles] = useState<UploadedFile[]>([]);
   const [results, setResults] = useState<OCRResult[]>([]);
   const [isProcessing, setIsProcessing] = useState(false);
@@ -140,6 +142,14 @@ export const useOCR = (options: UseOCROptions = {}): UseOCRReturn => {
 
       const result = data.data as OCRResult;
       
+      // Auto-create reminders from OCR results
+      if (user && result.reminderData?.suggestedReminders?.length > 0) {
+        await createRemindersFromOCR(
+          data.jobId || result.id,
+          result.reminderData.suggestedReminders
+        );
+      }
+      
       updateFileStatus(file.id, 'completed', 100);
       
       // Update file with result
@@ -162,7 +172,7 @@ export const useOCR = (options: UseOCROptions = {}): UseOCRReturn => {
 
       return null;
     }
-  }, [autoPreprocess, enhanceContrast, denoise, languages, extractReminders]);
+  }, [autoPreprocess, enhanceContrast, denoise, languages, extractReminders, user, createRemindersFromOCR]);
 
   const processFiles = useCallback(async () => {
     const pendingFiles = files.filter(f => f.status === 'pending');
